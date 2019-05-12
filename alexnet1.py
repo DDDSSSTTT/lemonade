@@ -1,31 +1,36 @@
-#!/usr/bin/env python
-#!/usr/local/bin/python
-#!/usr/bin/env PYTHONIOENCODING="utf-8" python
-import os
-import librosa
-import numpy as np
-import tflearn
-import speech_data as data
-import file_fetch_ts as fetch
+# -*- coding: utf-8 -*-
+
+""" AlexNet.
+
+Applying 'Alexnet' to Oxford's 17 Category Flower Dataset classification task.
+
+References:
+    - Alex Krizhevsky, Ilya Sutskever & Geoffrey E. Hinton. ImageNet
+    Classification with Deep Convolutional Neural Networks. NIPS, 2012.
+    - 17 Category Flower Dataset. Maria-Elena Nilsback and Andrew Zisserman.
+
+Links:
+    - [AlexNet Paper](http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf)
+    - [Flower Dataset (17)](http://www.robots.ox.ac.uk/~vgg/data/flowers/17/)
+
+"""
+
+from __future__ import division, print_function, absolute_import
+
 import tensorflow as tf
+import tflearn
 from tflearn.layers.core import input_data, dropout, fully_connected
 from tflearn.layers.conv import conv_2d, max_pool_2d
 from tflearn.layers.normalization import local_response_normalization
 from tflearn.layers.estimator import regression
 
-#gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
-#sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+import NPYS_Modify
 
+gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
+sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
 
-speakers=[]
-#speakers = data.get_speakers()
-file=open('spkrs_list.txt','r')  
-lines=file.readlines();
-for line in lines:
-    speaker=line.replace('\n', '')
-    speakers.append(speaker)
-number_classes=len(speakers)
-print("speakers",speakers)
+X, Y = NPYS_Modify.load_data()
+
 
 # Building 'AlexNet'
 network = input_data(shape=[None, 227, 227, 3])
@@ -59,22 +64,8 @@ network = regression(network, optimizer='Adam',
 # Training
 model = tflearn.DNN(network, checkpoint_path='model_alexnet',
                     max_checkpoints=1, tensorboard_verbose=2)
-statistic_array=np.zeros((1,number_classes))
-try:model.load('./saved_model/augment_model.tflearn')
-finally:ts_path="./new_data_set/simple_test_set/npys/"
-v_counter=0
-samples=fetch.random_sample(ts_path,1)
-for sample in samples:
-    load_spectrum=np.load(ts_path+sample)
-    #demo=np.reshape(load_spectrum,(227,227,1))
-    demo=np.array(load_spectrum,dtype=np.float32)
-    result1=model.predict([demo])
-    result=data.one_hot_to_item(result1,speakers)
-    validity=fetch.check_speaker(result,sample,-3)#-2or-3
-    print("predicted speaker for %s : result = %s validity = %d"%(sample,result,validity)) 
-    # ~ 97% correct
-    if validity:
-        v_counter+=1
-    else:
-        statistic_array=statistic_array+data.one_hot_from_item(fetch.extract(sample,-3),speakers)        
-print(v_counter/len(samples))
+model.load('./saved_model/augment_model.tflearn')
+model.fit(X, Y, n_epoch=30, validation_set=0.1, shuffle=True,
+          show_metric=True, batch_size=256, snapshot_step=10,
+          snapshot_epoch=False, run_id='alexnet_oxflowers17')
+model.save('./saved_model/augment_model.tflearn')

@@ -17,20 +17,26 @@ import pickle
 from data_utils import *
 import file_fetch_ts as fetch
 
-def load_data(dirname="./new_data_set/simple_train_set/NPYS/"):
+def load_data(dirname="./new_data_set/simple_train_set/npys/"):
     X=[]
     Y=[]
     speakers_list=fetch.get_spkrs(dirname)
+    file=open('spkrs_list.txt','w')  
+    for line in speakers_list:
+        file.write(line+'\n')
+    file.close() 
     filenamelist=os.listdir(dirname)
     for filename in filenamelist:
         if filename.endswith(".npy"):
             load_spectrum=np.load(dirname+filename)
-            unit_spec=np.reshape(load_spectrum,(80,800,1))
-            X.append(unit_spec)
+            #unit_spec=np.reshape(load_spectrum,(227,227,1))
+            X.append(load_spectrum)
             speaker=fetch.extract(filename)
+            
             Y.append(fetch.one_hot_from_item(speaker,speakers_list))
     X=np.array(X,dtype=np.float32)
     Y=np.array(Y,dtype=np.float64)
+    
     return X, Y
 
 
